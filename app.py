@@ -76,7 +76,6 @@ def device_push():
 
     return jsonify({"received": data}), 200
 
-
 @app.route('/iclock/cdata', methods=['GET'])
 def iclock_cdata():
     """Handle initial connection requests from devices."""
@@ -201,6 +200,7 @@ def create_user():
     users[uid] = {'card': card, 'start': start, 'end': end}
     save_users(users)
 
+
     # queue command to sync with devices
     devices = load_devices()
     cmds = load_commands()
@@ -230,7 +230,6 @@ def devices_page():
 def index():
     """Home page showing recent events."""
     return render_template_string(MONITOR_TEMPLATE)
-
 
 @app.route('/monitor', methods=['GET'])
 def monitor_page():
@@ -267,7 +266,6 @@ def iclock_devicecmd():
     if len(events) > 100:
         events.pop(0)
     return 'OK\n', 200, {'Content-Type': 'text/plain'}
-
 
 @app.route('/users/delete/<uid>', methods=['POST'])
 def delete_user(uid):
