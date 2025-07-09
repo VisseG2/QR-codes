@@ -13,6 +13,7 @@ from datetime import datetime
 app = Flask(__name__)
 USERS_FILE = 'users.json'
 DEVICES_FILE = 'devices.json'
+COMMANDS_FILE = 'commands.json'
 
 events = []  # in-memory list of recent events
 
@@ -37,6 +38,18 @@ def load_devices():
 def save_devices(devices):
     with open(DEVICES_FILE, 'w') as f:
         json.dump(devices, f, indent=2)
+
+
+def load_commands():
+    if os.path.exists(COMMANDS_FILE):
+        with open(COMMANDS_FILE, 'r') as f:
+            return json.load(f)
+    return {}
+
+
+def save_commands(cmds):
+    with open(COMMANDS_FILE, 'w') as f:
+        json.dump(cmds, f, indent=2)
 
 @app.route('/device/push', methods=['POST'])
 def device_push():
@@ -186,6 +199,24 @@ def create_user():
     users = load_users()
     users[uid] = {'card': card, 'start': start, 'end': end}
     save_users(users)
+
+
+    # queue command to sync with devices
+    devices = load_devices()
+    cmds = load_commands()
+    for sn, info in devices.items():
+        if info.get('registered'):
+            cmd_id = int(datetime.utcnow().timestamp())
+            start_val = start.replace('-', '').replace(':', '').replace(' ', '') or '0'
+            end_val = end.replace('-', '').replace(':', '').replace(' ', '') or '0'
+            cmd = (
+                f"C:{cmd_id}:DATA UPDATE user CardNo={card}\tPin={uid}\tPassword=\t"
+                f"Group=1\tStartTime={start_val}\tEndTime={end_val}\t"
+                "Name=\tPrivilege=0\tDisable=0"
+            )
+            cmds.setdefault(sn, []).append(cmd)
+    save_commands(cmds)
+
     return redirect(url_for('users_page'))
 
 
@@ -210,11 +241,47 @@ def events_feed():
     return jsonify(events)
 
 
+@app.route('/iclock/getrequest', methods=['GET'])
+def iclock_getrequest():
+    """Provide queued commands for a device."""
+    sn = request.args.get('SN', 'unknown')
+    cmds = load_commands()
+    device_cmds = cmds.get(sn, [])
+    cmds[sn] = []
+    save_commands(cmds)
+    if device_cmds:
+        return '\n'.join(device_cmds) + '\n', 200, {'Content-Type': 'text/plain'}
+    return '', 200, {'Content-Type': 'text/plain'}
+
+
+@app.route('/iclock/devicecmd', methods=['POST'])
+def iclock_devicecmd():
+    sn = request.args.get('SN') or request.form.get('SN', 'unknown')
+    events.append({
+        'device': sn,
+        'endpoint': '/iclock/devicecmd',
+        'data': request.form.to_dict(),
+        'ts': datetime.utcnow().isoformat(),
+    })
+    if len(events) > 100:
+        events.pop(0)
+    return 'OK\n', 200, {'Content-Type': 'text/plain'}
+
 @app.route('/users/delete/<uid>', methods=['POST'])
 def delete_user(uid):
     users = load_users()
     users.pop(uid, None)
     save_users(users)
+
+    devices = load_devices()
+    cmds = load_commands()
+    for sn, info in devices.items():
+        if info.get('registered'):
+            cmd_id = int(datetime.utcnow().timestamp())
+            cmd = f"C:{cmd_id}:DATA DELETE user Pin={uid}"
+            cmds.setdefault(sn, []).append(cmd)
+    save_commands(cmds)
+
     return redirect(url_for('users_page'))
 
 if __name__ == '__main__':

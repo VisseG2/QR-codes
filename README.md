@@ -25,7 +25,9 @@ python app.py
    - `http://localhost:5000/monitor` also displays events in real time.
    Devices should POST push data to `http://localhost:5000/device/push` and
    use `/iclock/cdata` and `/iclock/registry` to connect as described in the
-   ZKTeco PUSH protocol.
+   ZKTeco PUSH protocol. Devices poll `/iclock/getrequest` for commands and
+   report results to `/iclock/devicecmd`.
 
-User information is stored in `users.json` and device information in
-`devices.json` in the application directory.
+User information is stored in `users.json`, device information in
+`devices.json`, and queued commands in `commands.json` in the application
+directory.

@@ -1,5 +1,14 @@
 import json
-from app import app, load_users, save_users, load_devices, events
+from app import (
+    app,
+    load_users,
+    save_users,
+    load_devices,
+    save_devices,
+    load_commands,
+    save_commands,
+    events,
+)
 
 
 def test_create_user(client):
@@ -50,9 +59,28 @@ def test_root_and_iclock(client):
     assert devices['testdev']['registered'] is True
 
 
+def test_user_sync(client):
+    events.clear()
+    client.get('/iclock/cdata?SN=mydev&options=all')
+    client.post('/iclock/registry?SN=mydev')
+
+    client.post('/users/create', data={'uid': '55', 'card': '9999'})
+
+    resp = client.get('/iclock/getrequest?SN=mydev')
+    body = resp.get_data(as_text=True)
+    assert 'DATA UPDATE user' in body
+    # commands should be cleared after retrieval
+    resp = client.get('/iclock/getrequest?SN=mydev')
+    assert resp.data == b''
+
+
 def setup_module(module):
     save_users({})
+    save_devices({})
+    save_commands({})
 
 
 def teardown_module(module):
     save_users({})
+    save_devices({})
+    save_commands({})
