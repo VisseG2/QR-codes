@@ -27,6 +27,7 @@ def test_device_push(client):
     assert any(e['data'].get('event') == 'test' for e in feed.get_json())
 
 
+
 def setup_module(module):
     save_users({})
 

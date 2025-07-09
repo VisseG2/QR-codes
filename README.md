@@ -4,6 +4,7 @@ This repository contains a small Flask web application that accepts push
 requests from ZKTeco devices. It provides simple pages to manage users,
 view connected devices and monitor events in real time.
 
+
 ## Usage
 
 1. Install dependencies:
@@ -25,3 +26,4 @@ python app.py
 
 User information is stored in `users.json` and device information in
 `devices.json` in the application directory.
+

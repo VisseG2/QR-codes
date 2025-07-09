@@ -1,3 +1,4 @@
+
 from flask import (
     Flask,
     request,
@@ -38,10 +39,12 @@ def save_devices(devices):
     with open(DEVICES_FILE, 'w') as f:
         json.dump(devices, f, indent=2)
 
+
 @app.route('/device/push', methods=['POST'])
 def device_push():
     """Endpoint for devices to push data."""
     data = request.get_json(force=True, silent=True) or request.form.to_dict()
+
 
     # Determine device identifier
     device_id = (
@@ -76,17 +79,21 @@ USERS_TEMPLATE = """
       <button type='submit'>Delete</button>
     </form>
   </li>
+
 {% endfor %}
 </ul>
 <h2>Add User</h2>
 <form method="post" action="{{ url_for('create_user') }}">
   ID: <input type="text" name="uid"><br>
   Card number: <input type="text" name="card"><br>
+
   Start (YYYY-MM-DD HH:MM): <input type="text" name="start"><br>
   End (YYYY-MM-DD HH:MM): <input type="text" name="end"><br>
+
   <input type="submit" value="Create">
 </form>
 """
+
 
 DEVICES_TEMPLATE = """
 <!doctype html>
@@ -160,6 +167,7 @@ def delete_user(uid):
     users.pop(uid, None)
     save_users(users)
     return redirect(url_for('users_page'))
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
