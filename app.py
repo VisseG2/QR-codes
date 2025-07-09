@@ -63,7 +63,6 @@ def device_push():
 
     return jsonify({"received": data}), 200
 
-
 @app.route('/iclock/cdata', methods=['GET'])
 def iclock_cdata():
     """Handle initial connection requests from devices."""
@@ -200,7 +199,6 @@ def devices_page():
 def index():
     """Home page showing recent events."""
     return render_template_string(MONITOR_TEMPLATE)
-
 
 @app.route('/monitor', methods=['GET'])
 def monitor_page():
