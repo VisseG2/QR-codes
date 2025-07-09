@@ -1,5 +1,5 @@
 import json
-from app import app, load_users, save_users, events
+from app import app, load_users, save_users, load_devices, events
 
 
 def test_create_user(client):
@@ -26,6 +26,28 @@ def test_device_push(client):
     feed = client.get('/events')
     assert any(e['data'].get('event') == 'test' for e in feed.get_json())
 
+
+def test_root_and_iclock(client):
+    events.clear()
+
+    resp = client.get('/')
+    assert resp.status_code == 200
+
+    # initial connection
+    resp = client.get('/iclock/cdata?SN=testdev&options=all')
+    assert resp.status_code == 200
+    assert b'OK' in resp.data
+
+    # register device
+    resp = client.post('/iclock/registry?SN=testdev', data={'DeviceType': 'acc'})
+    assert resp.status_code == 200
+    assert b'registry=ok' in resp.data
+
+    resp = client.get('/iclock/cdata?SN=testdev&options=all')
+    assert b'registry=ok' in resp.data
+
+    devices = load_devices()
+    assert devices['testdev']['registered'] is True
 
 
 def setup_module(module):

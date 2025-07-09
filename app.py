@@ -1,4 +1,3 @@
-
 from flask import (
     Flask,
     request,
@@ -39,12 +38,10 @@ def save_devices(devices):
     with open(DEVICES_FILE, 'w') as f:
         json.dump(devices, f, indent=2)
 
-
 @app.route('/device/push', methods=['POST'])
 def device_push():
     """Endpoint for devices to push data."""
     data = request.get_json(force=True, silent=True) or request.form.to_dict()
-
 
     # Determine device identifier
     device_id = (
@@ -66,9 +63,58 @@ def device_push():
 
     return jsonify({"received": data}), 200
 
+@app.route('/iclock/cdata', methods=['GET'])
+def iclock_cdata():
+    """Handle initial connection requests from devices."""
+    sn = request.args.get('SN', request.args.get('sn', 'unknown'))
+    devices = load_devices()
+    device = devices.get(sn, {})
+    device.setdefault('registered', False)
+    device['last_seen'] = datetime.utcnow().isoformat()
+    devices[sn] = device
+    save_devices(devices)
+
+    events.append({
+        'device': sn,
+        'endpoint': '/iclock/cdata',
+        'data': request.args.to_dict(),
+        'ts': datetime.utcnow().isoformat(),
+    })
+    if len(events) > 100:
+        events.pop(0)
+
+    if device.get('registered'):
+        return 'registry=ok\nRegistryCode=0000\n', 200, {'Content-Type': 'text/plain'}
+    return 'OK\n', 200, {'Content-Type': 'text/plain'}
+
+
+@app.route('/iclock/registry', methods=['POST'])
+def iclock_registry():
+    """Register a device."""
+    sn = request.args.get('SN') or request.form.get('SN') or request.form.get('sn', 'unknown')
+    devices = load_devices()
+    device = devices.get(sn, {})
+    device['registered'] = True
+    device['last_seen'] = datetime.utcnow().isoformat()
+    device['info'] = request.form.to_dict()
+    devices[sn] = device
+    save_devices(devices)
+
+    events.append({
+        'device': sn,
+        'endpoint': '/iclock/registry',
+        'data': request.form.to_dict(),
+        'ts': datetime.utcnow().isoformat(),
+    })
+    if len(events) > 100:
+        events.pop(0)
+
+    return 'registry=ok\nRegistryCode=0000\n', 200, {'Content-Type': 'text/plain'}
+
 USERS_TEMPLATE = """
 <!doctype html>
 <title>Users</title>
+<a href='{{ url_for('index') }}'>Home</a> |
 <a href='{{ url_for('devices_page') }}'>Devices</a> |
 <a href='{{ url_for('monitor_page') }}'>Monitor</a>
 <h1>User List</h1>
@@ -79,25 +125,22 @@ USERS_TEMPLATE = """
       <button type='submit'>Delete</button>
     </form>
   </li>
-
 {% endfor %}
 </ul>
 <h2>Add User</h2>
 <form method="post" action="{{ url_for('create_user') }}">
   ID: <input type="text" name="uid"><br>
   Card number: <input type="text" name="card"><br>
-
   Start (YYYY-MM-DD HH:MM): <input type="text" name="start"><br>
   End (YYYY-MM-DD HH:MM): <input type="text" name="end"><br>
-
   <input type="submit" value="Create">
 </form>
 """
 
-
 DEVICES_TEMPLATE = """
 <!doctype html>
 <title>Devices</title>
+<a href='{{ url_for('index') }}'>Home</a> |
 <a href='{{ url_for('users_page') }}'>Users</a> |
 <a href='{{ url_for('monitor_page') }}'>Monitor</a>
 <h1>Connected Devices</h1>
@@ -111,6 +154,7 @@ DEVICES_TEMPLATE = """
 MONITOR_TEMPLATE = """
 <!doctype html>
 <title>Monitor</title>
+<a href='{{ url_for('index') }}'>Home</a> |
 <a href='{{ url_for('users_page') }}'>Users</a> |
 <a href='{{ url_for('devices_page') }}'>Devices</a>
 <h1>Real-time Events</h1>
@@ -151,6 +195,11 @@ def devices_page():
     return render_template_string(DEVICES_TEMPLATE, devices=devices)
 
 
+@app.route('/')
+def index():
+    """Home page showing recent events."""
+    return render_template_string(MONITOR_TEMPLATE)
+
 @app.route('/monitor', methods=['GET'])
 def monitor_page():
     return render_template_string(MONITOR_TEMPLATE)
@@ -167,7 +216,6 @@ def delete_user(uid):
     users.pop(uid, None)
     save_users(users)
     return redirect(url_for('users_page'))
-
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
